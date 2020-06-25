@@ -1,3 +1,3 @@
-module github.com/DABronskikh/go-lesson-4_task-1
+module github.com/DABronskikh/go-lesson-5
 
 go 1.14

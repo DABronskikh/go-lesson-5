@@ -1,7 +1,15 @@
 package transfer
 
 import (
-	"github.com/DABronskikh/go-lesson-4_task-1/pkg/card"
+	"errors"
+	"github.com/DABronskikh/go-lesson-5/pkg/card"
+)
+
+var (
+	ErrNotEnoughFundsAccount = errors.New("not enough funds account")
+	ErrSourceCardNotFound    = errors.New("source card not found")
+	ErrTargetCardNotFound    = errors.New("target card not found")
+	ErrInvalidCardNumber     = errors.New("err invalid card number")
 )
 
 type Commission struct {
@@ -32,17 +40,27 @@ func (s *Service) IssueCommission(from, to bool, percentage float64, minAmount i
 	s.Commission = append(s.Commission, commission)
 }
 
-func (s *Service) Card2Card(from, to string, amount int64) (total int64, ok bool) {
-	fromCard := s.CardSvc.SearchByNumber(from)
-	fromBool := fromCard != nil
-	toCard := s.CardSvc.SearchByNumber(to)
-	toBool := toCard != nil
+func (s *Service) Card2Card(from, to string, amount int64) (total int64, ok bool, err error) {
+	if !card.IsValid(from) || !card.IsValid(to) {
+		return 0, false, ErrInvalidCardNumber
+	}
+
+	fromCard, fromBool := s.CardSvc.FindByNumber(from)
+	if !fromBool {
+		return 0, false, ErrSourceCardNotFound
+	}
+
+	toCard, toBool := s.CardSvc.FindByNumber(to)
+	if !toBool {
+		return 0, false, ErrTargetCardNotFound
+	}
 
 	commission := s.searchCommission(fromBool, toBool)
 	percentage := commission.percentage
 	minAmount := commission.minAmount
 
 	var sumCommission int64
+	total = amount + sumCommission
 	if percentage != 0 {
 		sumCommission = int64(float64(amount) * percentage / 100)
 	}
@@ -51,22 +69,16 @@ func (s *Service) Card2Card(from, to string, amount int64) (total int64, ok bool
 		sumCommission = minAmount
 	}
 
-	total = amount + sumCommission
-	if (!fromBool && !toBool) || !fromBool {
-		ok = true
-	}
-	if fromBool {
-		newBalance := fromCard.Balance - total
-		if newBalance > 0 {
-			fromCard.Balance = newBalance
-			ok = true
-		}
-	}
-	if toBool {
-		toCard.Balance += amount
+	newBalance := fromCard.Balance - total
+
+	if newBalance < 0 {
+		return 0, false, ErrNotEnoughFundsAccount
 	}
 
-	return total, ok
+	fromCard.Balance = newBalance
+	toCard.Balance += amount
+
+	return total, true, err
 }
 
 func (s *Service) searchCommission(from, to bool) *Commission {
@@ -78,7 +90,7 @@ func (s *Service) searchCommission(from, to bool) *Commission {
 	return &Commission{
 		from:       false,
 		to:         false,
-		percentage: 0,
-		minAmount:  0,
+		percentage: 10,
+		minAmount:  100_00,
 	}
 }

@@ -1,14 +1,16 @@
 package transfer
 
 import (
-	"github.com/DABronskikh/go-lesson-4_task-1/pkg/card"
+	"github.com/DABronskikh/go-lesson-5/pkg/card"
 	"testing"
 )
 
 func TestService_Card2Card(t *testing.T) {
 	testBank := card.NewService("Test bank")
-	testBank.IssueCard("Visa", "RUB")
-	testBank.IssueCard("MasterCard", "RUB")
+	card1 := testBank.IssueCard("Visa", "RUB")
+	card1.Number = "5106 2100 0000 0007"
+	card2 := testBank.IssueCard("MasterCard", "RUB")
+	card2.Number = "5106 2100 0000 0049"
 
 	testBankTransfer := NewService(testBank)
 	testBankTransfer.IssueCommission(true, true, 0, 0)
@@ -21,6 +23,9 @@ func TestService_Card2Card(t *testing.T) {
 	testBankTransfer4 := testBankTransfer
 	testBankTransfer5 := testBankTransfer
 	testBankTransfer6 := testBankTransfer
+	testBankTransfer7 := testBankTransfer
+	testBankTransfer8 := testBankTransfer
+	testBankTransfer9 := testBankTransfer
 
 	type fields struct {
 		CardSvc    *card.Service
@@ -37,6 +42,7 @@ func TestService_Card2Card(t *testing.T) {
 		args      args
 		wantTotal int64
 		wantOk    bool
+		wantErr   error
 	}{
 		{
 			name: "Карта своего банка -> Карта своего банка (денег достаточно)",
@@ -51,6 +57,7 @@ func TestService_Card2Card(t *testing.T) {
 			},
 			wantTotal: 1000_00,
 			wantOk:    true,
+			wantErr:   nil,
 		},
 		{
 			name: "Карта своего банка -> Карта своего банка (денег недостаточно)",
@@ -63,8 +70,9 @@ func TestService_Card2Card(t *testing.T) {
 				to:     testBankTransfer2.CardSvc.Cards[1].Number,
 				amount: 100_000_00,
 			},
-			wantTotal: 100_000_00,
+			wantTotal: 0,
 			wantOk:    false,
+			wantErr:   ErrNotEnoughFundsAccount,
 		},
 		{
 			name: "Карта своего банка -> Карта чужого банка (денег достаточно)",
@@ -74,11 +82,12 @@ func TestService_Card2Card(t *testing.T) {
 			},
 			args: args{
 				from:   testBankTransfer3.CardSvc.Cards[0].Number,
-				to:     "001",
+				to:     "4276 1600 0000 0043",
 				amount: 100_00,
 			},
-			wantTotal: 110_00,
-			wantOk:    true,
+			wantTotal: 0,
+			wantOk:    false,
+			wantErr:   ErrTargetCardNotFound,
 		},
 		{
 			name: "Карта своего банка -> Карта чужого банка (денег недостаточно)",
@@ -88,11 +97,12 @@ func TestService_Card2Card(t *testing.T) {
 			},
 			args: args{
 				from:   testBankTransfer4.CardSvc.Cards[0].Number,
-				to:     "001",
+				to:     "4276 1600 0000 0043",
 				amount: 100_000_00,
 			},
-			wantTotal: 100_500_00,
+			wantTotal: 0,
 			wantOk:    false,
+			wantErr:   ErrTargetCardNotFound,
 		},
 		{
 			name: "Карта чужого банка -> Карта своего банка",
@@ -101,12 +111,13 @@ func TestService_Card2Card(t *testing.T) {
 				Commission: testBankTransfer5.Commission,
 			},
 			args: args{
-				from:   "001",
+				from:   "4276 1600 0000 0043",
 				to:     testBankTransfer5.CardSvc.Cards[0].Number,
 				amount: 1000_00,
 			},
-			wantTotal: 1000_00,
-			wantOk:    true,
+			wantTotal: 0,
+			wantOk:    false,
+			wantErr:   ErrSourceCardNotFound,
 		},
 		{
 			name: "Карта чужого банка -> Карта чужого банка",
@@ -115,12 +126,58 @@ func TestService_Card2Card(t *testing.T) {
 				Commission: testBankTransfer6.Commission,
 			},
 			args: args{
-				from:   "001",
-				to:     "002",
+				from:   "4276 1600 0000 0043",
+				to:     "4276 1600 0000 0050",
 				amount: 100_00,
 			},
-			wantTotal: 130_00,
+			wantTotal: 0,
+			wantOk:    false,
+			wantErr:   ErrSourceCardNotFound,
+		},
+		{
+			name: "Задача №2 – Card Structure (проверка по префиксу карты)",
+			fields: fields{
+				CardSvc:    testBankTransfer7.CardSvc,
+				Commission: testBankTransfer7.Commission,
+			},
+			args: args{
+				from:   testBankTransfer7.CardSvc.Cards[0].Number,
+				to:     "5106 2100 0000 0049",
+				amount: 100_00,
+			},
+			wantTotal: 100_00,
 			wantOk:    true,
+			wantErr:   nil,
+		},
+		{
+			name: "Задача №3 – Алгоритм Луна (номер валидный)",
+			fields: fields{
+				CardSvc:    testBankTransfer8.CardSvc,
+				Commission: testBankTransfer8.Commission,
+			},
+			args: args{
+				from:   testBankTransfer8.CardSvc.Cards[0].Number,
+				to:     testBankTransfer8.CardSvc.Cards[1].Number,
+				amount: 100_00,
+			},
+			wantTotal: 100_00,
+			wantOk:    true,
+			wantErr:   nil,
+		},
+		{
+			name: "Задача №3 – Алгоритм Луна (номер НЕ валидный)",
+			fields: fields{
+				CardSvc:    testBankTransfer9.CardSvc,
+				Commission: testBankTransfer9.Commission,
+			},
+			args: args{
+				from:   testBankTransfer9.CardSvc.Cards[0].Number,
+				to:     "5106 2100 0000 00XX",
+				amount: 100_00,
+			},
+			wantTotal: 0,
+			wantOk:    false,
+			wantErr:   ErrInvalidCardNumber,
 		},
 	}
 	for _, tt := range tests {
@@ -128,12 +185,15 @@ func TestService_Card2Card(t *testing.T) {
 			CardSvc:    tt.fields.CardSvc,
 			Commission: tt.fields.Commission,
 		}
-		gotTotal, gotOk := s.Card2Card(tt.args.from, tt.args.to, tt.args.amount)
+		gotTotal, gotOk, gotErr := s.Card2Card(tt.args.from, tt.args.to, tt.args.amount)
 		if gotTotal != tt.wantTotal {
 			t.Errorf("Card2Card() gotTotal = %v, want %v", gotTotal, tt.wantTotal)
 		}
 		if gotOk != tt.wantOk {
 			t.Errorf("Card2Card() gotOk = %v, want %v", gotOk, tt.wantOk)
+		}
+		if gotErr != tt.wantErr {
+			t.Errorf("Card2Card() gotOk = %v, want %v", gotErr, tt.wantErr)
 		}
 	}
 }

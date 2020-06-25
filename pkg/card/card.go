@@ -3,6 +3,7 @@ package card
 import (
 	"math/rand"
 	"strconv"
+	"strings"
 )
 
 type Card = struct {
@@ -80,6 +81,63 @@ func (s *Service) SearchByNumber(number string) *Card {
 	return nil
 }
 
-func randNumber() (number string) {
-	return strconv.Itoa(rand.Intn(100))
+func (s *Service) FindByNumber(number string) (*Card, bool) {
+	for _, c := range s.Cards {
+		if c.Number == number {
+			return c, true
+		}
+	}
+
+	// если карта не найдена, но ее номер начинается с "5106 21" создадим произвольную
+	//с нужным префиксом для сервиса и вернем
+	if strings.HasPrefix(number, "5106 21") {
+		c := s.IssueCard("MasterCard", "RUB")
+		return c, true
+	}
+	return nil, false
+}
+
+func (s *Service) FindById(id int64) (*Card, bool) {
+	for _, c := range s.Cards {
+		if c.Id == id {
+			return c, true
+		}
+	}
+	return nil, false
+}
+
+func randNumber() string {
+	num := strconv.Itoa(rand.Intn(99))
+	num = "5106 21" + num + " 0000 0000"
+
+	return num
+}
+
+func IsValid(number string) bool {
+	number = strings.ReplaceAll(number, " ", "")
+	numbersStr := strings.Split(number, "")
+
+	start := len(numbersStr) % 2
+	sum := 0
+
+	for i, v := range numbersStr {
+		number, err := strconv.Atoi(v)
+		if err != nil {
+			return false
+		}
+
+		if i%2 == start {
+			number *= 2
+			if number > 9 {
+				number -= 9
+			}
+		}
+		sum += number
+	}
+
+	if sum%10 != 0 {
+		return false
+	}
+
+	return true
 }
